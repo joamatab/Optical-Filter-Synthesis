@@ -38,8 +38,7 @@ def convertToNormalizedFrequency(lamda0, lamda1, lamda):
     f1 = c/lamda_1
     f0 = c/lamda_0
     f = c/lamda_
-    omega = np.pi*(f-f0)/(f1-f0)
-    return omega
+    return np.pi*(f-f0)/(f1-f0)
 
 
 def obtainPassbandsFromStopbands(stopbands, t_width):
@@ -110,10 +109,7 @@ def generateH_ejw(bands, t_width, N, filter_type, plot=False):
     """
     PI = np.pi
     atten_linear = 10**(-300/20.0)#Do exponential taper to very small value (nearly 0) -300 db is nearly 0
-    if filter_type == 'Pass':
-        H_ejw = np.zeros(N)#"Ideal" Filter transfer function in frequency domain
-    else:
-        H_ejw = np.ones(N)
+    H_ejw = np.zeros(N) if filter_type == 'Pass' else np.ones(N)
     mag_val = np.log(atten_linear)#Needed to fill H_ejw array - is natural log of stopband amplitude
     omegas = np.linspace(0, PI, N)
     if filter_type == 'Pass':
@@ -233,7 +229,7 @@ def designFIRFilterParksMcClellan(order, t_width, bands, filterType, plot=True):
     PI = np.pi
     freq = []#Frequency points
     gain = []#Gain of filter for bands in freq, size of this list should be exactly half the size of freq
-    
+
     #Build lists freq and gain
     for ii in range(len(bands)):
         if bands[ii][0] != 0.0:
@@ -254,8 +250,8 @@ def designFIRFilterParksMcClellan(order, t_width, bands, filterType, plot=True):
             gain.append(1.0)
 
     weight = []#Weighting function to plug into remez exchnage algorithm
-    for ii in range(len(gain)):
-        if gain[ii] == 0.0:
+    for item in gain:
+        if item == 0.0:
             weight.append(10.0)
         else:
             weight.append(1.0)
@@ -281,12 +277,11 @@ def kaiserBeta(atten):
     Return: Kaiser window parameter beta
     """
     if atten < 21.0:
-        beta = 0.0
-    elif atten >= 21.0 and atten <= 50.0:
-        beta = 0.5842*(atten - 21.0)**(0.4) + 0.07886*(atten - 21.0)
+        return 0.0
+    elif atten <= 50.0:
+        return 0.5842*(atten - 21.0)**(0.4) + 0.07886*(atten - 21.0)
     else:
-        beta = 0.1102*(atten - 8.7)
-    return beta
+        return 0.1102*(atten - 8.7)
     
 
 
@@ -325,27 +320,27 @@ def designFIRFilter(N, bands, atten, filterType, method, table=None):
                     t_width = (bands[ii][0]-bands[ii-1][1])/2.5
                     print("Needed to Increase Order N to Meet Spec And Not Break Program- Transition Too Sharp")
                     N = int((atten - 8.0)/(2.285*t_width) + 1)
-                    print("New Filter Order: " + str(N))
-        
+                    print(f"New Filter Order: {N}")
+
         #If bandstop, filter needs to be a Type I linear phase system
         if filterType == 'Stop' and N % 2 != 0:
             N = N + 1
-            
+
         #Design filter using Kaiser window method
         A_N = designFIRFilterGKaiser(bands, t_width, N + 1, beta, filterType, table=None, plot=False)
     else:
         del_s = 10**(-atten/20.0)
         del_p = 10**(1.0-(atten/20.0))
         t_width = (1.0/(14.6*N))*((2.0*np.pi)*(-20.0*np.log10(np.sqrt(del_s*del_p))-13.0))
-        
+
         #Check to see if transition width needs to be resized to improve robustness of synthesis algorithm
         for ii in range(1,n_bands):
-                if (bands[ii][0]-bands[ii-1][1])/2.0 < t_width:
-                    t_width = (bands[ii][0]-bands[ii-1][1])/2.5
-                    print("Needed to Increase Order N to Meet Spec And Not Break Program- Transition Too Sharp")
-                    N = int((1.0/(14.6*t_width))*((2.0*PI)*(-20*np.log10(np.sqrt(del_s*del_p))-13.0)) + 1)
-                    print("New Filter Order: " + str(N))
-            
+            if (bands[ii][0]-bands[ii-1][1])/2.0 < t_width:
+                t_width = (bands[ii][0]-bands[ii-1][1])/2.5
+                print("Needed to Increase Order N to Meet Spec And Not Break Program- Transition Too Sharp")
+                N = int((1.0/(14.6*t_width))*((2.0*PI)*(-20*np.log10(np.sqrt(del_s*del_p))-13.0)) + 1)
+                print(f"New Filter Order: {N}")
+
         #Design filter using Parks - McClellan Method
         A_N = designFIRFilterParksMcClellan(N, t_width, bands, filterType, plot=False)
     return A_N, N, t_width

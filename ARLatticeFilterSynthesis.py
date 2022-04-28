@@ -57,11 +57,11 @@ def synthesizeARLattice(A_N, N, big_gamma, little_gamma):
             B_N1_tild = (1.0/(little_gamma*kappa))*np.polyadd(c_n*A_coef,-1.0*B_coef)#This is an ndarray
             phi_n = np.angle(A_N1.coef[0]) - np.angle(B_N1_tild[0])
             phis.insert(0,phi_n)
-            B_N1 = np.poly1d(np.exp(1j*phi_n)*B_N1_tild[0:B_N1_tild.size-1])#Reduce order by 1 by eliminating the constant term
+            B_N1 = np.poly1d(np.exp(1j*phi_n) * B_N1_tild[:B_N1_tild.size-1])
             for ii in range(B_N1.coef.size):
                 if np.imag(B_N1.coef[ii]) < 2.0E-16:
                     B_N1.coef[ii] = np.real(B_N1.coef[ii])
-            
+
         n = n - 1
         A_N = A_N1
         B_N = B_N1

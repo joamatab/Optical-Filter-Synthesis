@@ -84,16 +84,13 @@ def receiveFilterParametersFile(filename):
             params[10]: Filter order
     """
     file1 = open(filename, 'r+')
-    params = []
     text = file1.readlines()
     if len(text) < 8:
         print("Error! Not Enough Input Parameters!")
         exit()
-    params.append(float(text[0].split('//')[0]))#Group index n_g
+    params = [float(text[0].split('//')[0])]
     line1 = text[1].split('//')[0].split(',')
-    params.append(float(line1[0]))#l_c
-    params.append(float(line1[1]))#l_end
-    params.append(float(line1[2]))#L_2
+    params.extend((float(line1[0]), float(line1[1]), float(line1[2])))
     line2 = text[2].split('//')[0]
     params.append(line2)#Pass or Stop, indicating filter type
     num_bands = int(text[3].split('//')[0])#Number of bands (1 or 2 for now)
@@ -102,11 +99,15 @@ def receiveFilterParametersFile(filename):
         params.append(float(text[4].split('//')[0]))
     elif num_bands == 2:
         line4 = text[4].split('//')[0].split(',')
-        params.append(float(line4[0]))#First center wavelength
-        params.append(float(line4[1]))#Second center wavelength
-    params.append(float(text[5].split('//')[0]))#Pass/Stop band width (in nm)
-    params.append(float(text[6].split('//')[0]))#Max. stopband attenuation
-    params.append(int(text[7].split('//')[0]))#Filter order
+        params.extend((float(line4[0]), float(line4[1])))
+    params.extend(
+        (
+            float(text[5].split('//')[0]),
+            float(text[6].split('//')[0]),
+            int(text[7].split('//')[0]),
+        )
+    )
+
     return params
 
 
@@ -225,19 +226,22 @@ def writeLayoutParametersToFile(kappalcs, phis, L_U, L_2, filename, order, metho
 
     Return: None
     """
-    file1 = open(filename, 'r+')#open file
-    file1.write("% Filter Design Method: " + method + " Filter Order: " + str(order)+ "\n")
-    file1.write("% Unit Delay Length: " + str(L_U) + " um" + "\n")
-    alpha = 1E-04 # db per um
-    gamma = 10**((-alpha*L_2)/20.0)
-    file1.write("% Coupler Length L_2: " + str(L_2) + " um" + "\n")
-    file1.write("% Loss Coefficient Gamma per Stage: " + str(gamma) + "\n")
-    for ii in range(len(kappalcs)):#Write parameters to file
-        if ii != 0:
-            file1.write(f"{kappalcs[ii][0]:.6e},{kappalcs[ii][1]:.6e},{phis[ii-1]:6f},\n")
-        else:
-            file1.write(f"{kappalcs[ii][0]:.6e},{kappalcs[ii][1]:.6e},\n")
-    file1.close()#close file
+    with open(filename, 'r+') as file1:
+        file1.write(
+            f"% Filter Design Method: {method} Filter Order: {str(order)}"
+            + "\n"
+        )
+
+        file1.write(f"% Unit Delay Length: {str(L_U)} um" + "\n")
+        alpha = 1E-04 # db per um
+        gamma = 10**((-alpha*L_2)/20.0)
+        file1.write(f"% Coupler Length L_2: {str(L_2)} um" + "\n")
+        file1.write(f"% Loss Coefficient Gamma per Stage: {str(gamma)}" + "\n")
+        for ii in range(len(kappalcs)):#Write parameters to file
+            if ii != 0:
+                file1.write(f"{kappalcs[ii][0]:.6e},{kappalcs[ii][1]:.6e},{phis[ii-1]:6f},\n")
+            else:
+                file1.write(f"{kappalcs[ii][0]:.6e},{kappalcs[ii][1]:.6e},\n")
 
 
 def graphTLambda(A_N, band_wvlength, endpoints, center_wvlengths, atten, filter_type):
@@ -258,24 +262,20 @@ def graphTLambda(A_N, band_wvlength, endpoints, center_wvlengths, atten, filter_
     wvlength = np.zeros(w.size)
     for ii in range(w.size):
         denom = (1.0/PI)*(w[ii]*(f1-f0)) + f0
-        wvlength[ii] = c/denom  
+        wvlength[ii] = c/denom
     plt.title('MA/FIR filter frequency response')
     plt.plot(np.flip(wvlength), 20*np.log10(abs(h)), color='b', label='Realized Frequency Response')
-    
-    #Build plot of "Ideal" T(lambda)
-    band_edges = []
-    gain_levels = []
-    x_min = []
-    x_max = []
+
     y_min = []
     y_max = []
-    #Region before first pass/stop band
-    x_min.append(endpoints[1])
-    x_max.append(center_wvlengths[center_wvlengths.size-1]-(band_wvlength/2.0))
+    x_min = [endpoints[1]]
+    x_max = [center_wvlengths[center_wvlengths.size-1] - band_wvlength/2.0]
+    gain_levels = []
     if filter_type == 'Pass':
         gain_levels.append(-1*atten)
     else:
         gain_levels.append(0)
+    band_edges = []
     #Pass/Stop Bands
     for ii in range(center_wvlengths.size):
         band_edges.append(center_wvlengths[ii]-(band_wvlength/2.0))
@@ -293,11 +293,9 @@ def graphTLambda(A_N, band_wvlength, endpoints, center_wvlengths, atten, filter_
             if ii != 0:
                 x_min.append(center_wvlengths[ii]+(band_wvlength/2.0))
                 gain_levels.append(0)
-                x_max.append(center_wvlengths[ii-1]-(band_wvlength/2.0))       
-        y_min.append(-1*atten)
-        y_min.append(-1*atten)
-        y_max.append(0)
-        y_max.append(0)
+                x_max.append(center_wvlengths[ii-1]-(band_wvlength/2.0))
+        y_min.extend((-1*atten, -1*atten))
+        y_max.extend((0, 0))
     #Region after pass/stop bands
     x_min.append(center_wvlengths[0]+(band_wvlength/2.0))
     x_max.append(endpoints[0])

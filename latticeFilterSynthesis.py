@@ -98,8 +98,7 @@ def calcLengths(kappa, lc, lend):
     Return: L_c, in um
     """
     psy = (2.0/np.pi)*np.arcsin(np.sqrt(kappa))
-    L_c = (lc+lend)/psy
-    return L_c
+    return (lc+lend)/psy
     
 
 def synthesizeFIRLattice(A_N, N, gamma):
@@ -125,7 +124,7 @@ def synthesizeFIRLattice(A_N, N, gamma):
     n = N
     while n >= 0:
         #print(A_N)
-        
+
         #Calculate kappa
         beta = np.absolute(B_N[0]/A_N[0])**2
         kappa = beta/(1.0 + beta)
@@ -145,7 +144,7 @@ def synthesizeFIRLattice(A_N, N, gamma):
             phi_n = -(np.angle(A_N1_tild[0]) + np.angle(B_N1[0]))
             phi_l.insert(0,phi_n)
             A_N1_tild = (1.0/gamma)*np.exp(1j*phi_n)*A_N1_tild
-            A_N1 = A_N1_tild[0:A_N1_tild.size-1]#Build polynomial A_N1(z), and reduce order by 1 by eliminating the constant term(multiplying by z)
+            A_N1 = A_N1_tild[:A_N1_tild.size-1]
             #Shouldn't have complex coefs.
             for ii in range(A_N1.size):
                 if np.imag(A_N1[ii]) < 2.0E-16:
